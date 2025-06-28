@@ -6,31 +6,31 @@ dnf update -y
 
 dnf install -y dhcp-server
 
-enp0s8
+enp0s9
 
-ip addr add 192.168.1.1/24 dev enp0s8
-ip link set enp0s8 up
+ip addr add 192.168.1.1/24 dev enp0s9
+ip link set enp0s9 up
 
 bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
-subnet 192.168.0.0 netmask 255.255.255.0 {
-    range 192.168.0.0 192.168.0.100;
-    range 192.168.0.120 192.168.0.254;
-    option domain-name-servers 192.168.0.10, 192.168.0.11;
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.0 192.168.1.100;
+    range 192.168.1.120 192.168.1.254;
+    option domain-name-servers 192.168.1.10, 192.168.1.11;
     option domain-name "redos.test";
-    option routers 192.168.0.1;
-    option broadcast-address 192.168.0.255;
+    option routers 192.168.1.1;
+    option broadcast-address 192.168.1.255;
     default-lease-time 600;
     max-lease-time 7200;
 }
 EOF'
 
-bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-enp0s8 << EOF
+bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-enp0s9 << EOF
 TYPE="Ethernet"
 BOOTPROTO="none"
-DNS1="192.168.0.1"
-IPADDR0="192.168.0.1"
+DNS1="192.168.1.1"
+IPADDR0="192.168.1.1"
 PREFIX0=24
-GATEWAY0=192.168.0.1
+GATEWAY0=192.168.1.1
 DEFROUTE="yes"
 PEERDNS="yes"
 PEERROUTES="yes"
@@ -42,12 +42,13 @@ IPV6_PEERDNS="yes"
 IPV6_PEERROUTES="yes"
 IPV6_FAILURE_FATAL="no"
 IPV6_ADDR_GEN_MODE="stable-privacy"
-NAME="enp0s8"
-DEVICE="enp0s8"
+NAME="enp0s9"
+DEVICE="enp0s9"
 ON BOOT="yes"
 EOF"
 
-bash -c "echo 'DHCPDARGS=enp0s8' > /etc/sysconfig/dhcpd"
+bash -c "echo 'DHCPDARGS=enp0s9' > /etc/sysconfig/dhcpd"
+systemctl enable --now firewalld
 firewall-cmd --permanent --add-service=dhcp
 firewall-cmd --reload
 
