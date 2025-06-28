@@ -6,15 +6,10 @@ dnf update -y
 
 dnf install -y dhcp-server
 
-INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n 1)
-if [ -z "$INTERFACE" ]; then
-    INTERFACE=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2;getline}' | head -n 1 | xargs)
-fi
+enp0s8
 
-read
-
-ip addr add 192.168.1.1/24 dev $INTERFACE
-ip link set $INTERFACE up
+ip addr add 192.168.1.1/24 dev enp0s8
+ip link set enp0s8 up
 
 bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
 subnet 192.168.0.0 netmask 255.255.255.0 {
@@ -29,7 +24,7 @@ subnet 192.168.0.0 netmask 255.255.255.0 {
 }
 EOF'
 
-bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-$INTERFACE << EOF
+bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-enp0s8 << EOF
 TYPE="Ethernet"
 BOOTPROTO="none"
 DNS1="192.168.0.1"
@@ -47,12 +42,12 @@ IPV6_PEERDNS="yes"
 IPV6_PEERROUTES="yes"
 IPV6_FAILURE_FATAL="no"
 IPV6_ADDR_GEN_MODE="stable-privacy"
-NAME="$INTERFACE"
-DEVICE="$INTERFACE"
+NAME="enp0s8"
+DEVICE="enp0s8"
 ON BOOT="yes"
 EOF"
 
-bash -c "echo 'DHCPDARGS=$INTERFACE' > /etc/sysconfig/dhcpd"
+bash -c "echo 'DHCPDARGS=enp0s8' > /etc/sysconfig/dhcpd"
 firewall-cmd --permanent --add-service=dhcp
 firewall-cmd --reload
 
