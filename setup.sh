@@ -1,21 +1,13 @@
 #!/bin/bash
 
-set +o history
-
 dnf update -y
-
-dnf install -y dhcp-server
-
-enp0s9
-
+dnf install -y dhcp-server vsftpd ftp
 ip addr add 192.168.1.1/24 dev enp0s9
 ip link set enp0s9 up
-
 bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
 subnet 192.168.1.0 netmask 255.255.255.0 {
-    range 192.168.1.0 192.168.1.100;
     range 192.168.1.120 192.168.1.254;
-    option domain-name-servers 192.168.1.10, 192.168.1.11;
+    option domain-name-servers 8.8.8.8, 8.8.4.4;
     option domain-name "redos.test";
     option routers 192.168.1.1;
     option broadcast-address 192.168.1.255;
@@ -23,7 +15,6 @@ subnet 192.168.1.0 netmask 255.255.255.0 {
     max-lease-time 7200;
 }
 EOF'
-
 bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-enp0s9 << EOF
 TYPE="Ethernet"
 BOOTPROTO="none"
@@ -46,21 +37,15 @@ NAME="enp0s9"
 DEVICE="enp0s9"
 ON BOOT="yes"
 EOF"
-
 bash -c "echo 'DHCPDARGS=enp0s9' > /etc/sysconfig/dhcpd"
 systemctl enable --now firewalld
 firewall-cmd --permanent --add-service=dhcp
 firewall-cmd --reload
-
 systemctl enable --now dhcpd
-systemctl start dhcpd
-
-dnf install -y vsftpd
-
+systemctl restart dhcpd
 cp /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf.bak
-
 bash -c 'cat > /etc/vsftpd/vsftpd.conf << EOF
-anonymous_enable=NO
+anonymous_enable=YES
 local_enable=YES
 write_enable=YES
 local_umask=022
@@ -73,15 +58,22 @@ listen_ipv6=NO
 pam_service_name=vsftpd
 userlist_enable=YES
 tcp_wrappers=YES
+user_config_dir=/etc/vsftpd_user_conf
+chroot_local_user=YES
+allow_writeable_chroot=YES
 EOF'
-
+mkdir /etc/vsftpd_user_conf
+bash -c 'cat > /etc/vsftpd_user_conf/ftpuser << EOF
+local_root=/serv/ftp/
+EOF'
+bash -c 'cat > /etc/vsftpd_user_conf/user << EOF
+local_root=/serv/ftp/
+EOF'
+mkdir -p /srv/share/ftp 
+usermod -d /srv/share/ftp ftp
 useradd -m ftpuser
 echo "ftpuser:password123" | sudo chpasswd
-
-
 firewall-cmd --permanent --add-service=ftp
 firewall-cmd --reload
-
-
-systemctl enable vsftpd
-systemctl start vsftpd
+systemctl enable vsftpd --now
+systemctl restart vsftpd
