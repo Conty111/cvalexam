@@ -17,7 +17,6 @@ ip addr add 192.168.1.1/24 dev $INTERFACE
 ip link set $INTERFACE up
 
 bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
-log-facility local6;
 subnet 192.168.0.0 netmask 255.255.255.0 {
     range 192.168.0.0 192.168.0.100;
     range 192.168.0.120 192.168.0.254;
@@ -53,23 +52,16 @@ DEVICE="$INTERFACE"
 ON BOOT="yes"
 EOF"
 
-bash -c "cat >> /etc/rsyslog.conf << EOF
-local6.*    /var/log/dhcp.log
-EOF"
-
 bash -c "echo 'DHCPDARGS=$INTERFACE' > /etc/sysconfig/dhcpd"
 firewall-cmd --permanent --add-service=dhcp
 firewall-cmd --reload
 
 systemctl enable --now dhcpd
 systemctl start dhcpd
-systemctl restart rsyslog
 
 dnf install -y vsftpd
 
-
 cp /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf.bak
-
 
 bash -c 'cat > /etc/vsftpd/vsftpd.conf << EOF
 anonymous_enable=NO
