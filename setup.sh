@@ -1,49 +1,75 @@
 #!/bin/bash
 
-sudo dnf update -y
+dnf update -y
 
-sudo dnf install -y dhcp-server
-
+dnf install -y dhcp-server
 
 INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n 1)
 if [ -z "$INTERFACE" ]; then
     INTERFACE=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2;getline}' | head -n 1 | xargs)
 fi
 
-sudo ip addr add 192.168.1.1/24 dev $INTERFACE
-sudo ip link set $INTERFACE up
+read
 
+ip addr add 192.168.1.1/24 dev $INTERFACE
+ip link set $INTERFACE up
 
-sudo bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
-default-lease-time 600;
-max-lease-time 7200;
-authoritative;
-
-log-facility local7;
-
-subnet 192.168.1.0 netmask 255.255.255.0 {
-    range 192.168.1.2 192.168.1.2;
-    option routers 192.168.1.1;
-    option subnet-mask 255.255.255.0;
-    option domain-name-servers 8.8.8.8, 8.8.4.4;
+bash -c 'cat > /etc/dhcp/dhcpd.conf << EOF
+log-facility local6;
+subnet 192.168.0.0 netmask 255.255.255.0 {
+    range 192.168.0.0 192.168.0.100;
+    range 192.168.0.120 192.168.0.254;
+    option domain-name-servers 192.168.0.10, 192.168.0.11;
+    option domain-name "redos.test";
+    option routers 192.168.0.1;
+    option broadcast-address 192.168.0.255;
+    default-lease-time 600;
+    max-lease-time 7200;
 }
 EOF'
 
+bash -c "cat > /etc/sysconfig/network-scripts/ifcfg-$INTERFACE << EOF
+TYPE="Ethernet"
+BOOTPROTO="none"
+DNS1="192.168.0.1"
+IPADDR0="192.168.0.1"
+PREFIX0=24
+GATEWAY0=192.168.0.1
+DEFROUTE="yes"
+PEERDNS="yes"
+PEERROUTES="yes"
+IPV4_FAILURE_FATAL="no"
+IPV6INIT="yes"
+IPV6_AUTOCONF="yes"
+IPV6_DEFROUTE="yes"
+IPV6_PEERDNS="yes"
+IPV6_PEERROUTES="yes"
+IPV6_FAILURE_FATAL="no"
+IPV6_ADDR_GEN_MODE="stable-privacy"
+NAME="$INTERFACE"
+DEVICE="$INTERFACE"
+ON BOOT="yes"
+EOF"
 
-sudo bash -c "echo 'DHCPDARGS=$INTERFACE' > /etc/sysconfig/dhcpd"
+bash -c "cat >> /etc/rsyslog.conf << EOF
+local6.*    /var/log/dhcp.log
+EOF"
+
+bash -c "echo 'DHCPDARGS=$INTERFACE' > /etc/sysconfig/dhcpd"
+firewall-cmd --permanent --add-service=dhcp
+firewall-cmd --reload
+
+systemctl enable --now dhcpd
+systemctl start dhcpd
+systemctl restart rsyslog
+
+dnf install -y vsftpd
 
 
-sudo systemctl enable dhcpd
-sudo systemctl start dhcpd
+cp /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf.bak
 
 
-sudo dnf install -y vsftpd
-
-
-sudo cp /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf.bak
-
-
-sudo bash -c 'cat > /etc/vsftpd/vsftpd.conf << EOF
+bash -c 'cat > /etc/vsftpd/vsftpd.conf << EOF
 anonymous_enable=NO
 local_enable=YES
 write_enable=YES
@@ -59,13 +85,13 @@ userlist_enable=YES
 tcp_wrappers=YES
 EOF'
 
-sudo useradd -m ftpuser
+useradd -m ftpuser
 echo "ftpuser:password123" | sudo chpasswd
 
 
-sudo firewall-cmd --permanent --add-service=ftp
-sudo firewall-cmd --reload
+firewall-cmd --permanent --add-service=ftp
+firewall-cmd --reload
 
 
-sudo systemctl enable vsftpd
-sudo systemctl start vsftpd
+systemctl enable vsftpd
+systemctl start vsftpd
