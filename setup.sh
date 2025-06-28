@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set +o history
+
 dnf update -y
 
 dnf install -y dhcp-server
